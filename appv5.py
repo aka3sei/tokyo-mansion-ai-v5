@@ -4,92 +4,57 @@ import pickle
 import numpy as np
 import re
 
-# --- 1. AIモデル（脳）の読み込み ---
 @st.cache_resource
-def load_ai_model():
+def load_model():
     try:
-        # 学習時に作成した「final」ファイルを読み込みます
         with open('real_estate_ai_final.pkl', 'rb') as f:
-            data = pickle.load(f)
-        return data
-    except Exception as e:
-        st.error(f"モデルファイル(real_estate_ai_final.pkl)の読み込みに失敗しました: {e}")
+            return pickle.load(f)
+    except:
         return None
 
-ai_res = load_ai_model()
+ai_data = load_model()
 
-# --- 2. デザイン ---
-st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
-st.markdown("""<style>
-    header[data-testid="stHeader"] { visibility: hidden; }
-    .stApp { background-color: white; }
-    .result-card { padding: 25px; border: 1px solid #e2e8f0; border-radius: 15px; background-color: #f8fafc; margin-top: 20px; }
-    .main-price { font-size: 32px; font-weight: bold; color: #1e3a8a; }
-</style>""", unsafe_allow_html=True)
-
+st.set_page_config(page_title="23区精密エリアAI査定")
 st.title("🏙️ 23区精密エリアAI査定")
 
-if ai_res:
-    model = ai_res['model']
-    model_columns = ai_res['columns'] # AIが学習した「地点_東京都...」というカラム名のリスト
+if ai_data:
+    model = ai_data['model']
+    cols = ai_data['columns']
     
-    # 1. AIの学習済みカラムから地点リストを作成
-    # これにより、AIが知っている名前とアプリの選択肢が100%一致します
-    all_locations = [c.replace('地点_', '') for c in model_columns if c.startswith('地点_')]
-    df_towns = pd.DataFrame(all_locations, columns=['full_address'])
+    towns = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
+    df_towns = pd.DataFrame({'full': towns})
+    df_towns['ward'] = df_towns['full'].apply(lambda x: re.search(r'東京都(.*?区)', x).group(1))
     
-    # 区名を抽出してグループ化
-    df_towns['ward'] = df_towns['full_address'].apply(lambda x: re.search(r'東京都(.*?区)', x).group(1) if '区' in x else "その他")
-    
-    # --- UI ---
-    ward_list = sorted(df_towns['ward'].unique())
-    selected_ward = st.selectbox("1. 区を選択してください", options=ward_list)
-    
-    # 選択された区の地点を絞り込み
-    filtered_df = df_towns[df_towns['ward'] == selected_ward].sort_values('full_address')
-    
-    # 表示用：区名より後の住所だけを表示（三宿１丁目など）
-    display_map = {row['full_address']: row['full_address'].split(selected_ward)[-1] for _, row in filtered_df.iterrows()}
-    
-    selected_loc = st.selectbox(
-        "2. 地点を選択してください", 
-        options=list(display_map.keys()),
-        format_func=lambda x: display_map[x]
-    )
+    ward = st.selectbox("1. 区を選択", sorted(df_towns['ward'].unique()))
+    loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
+    # カッコなしで表示
+    selected_loc = st.selectbox("2. 地点を選択", loc_options, format_func=lambda x: x.split(ward)[-1])
 
-    col1, col2 = st.columns(2)
-    with col1:
-        area = st.number_input("専有面積 (㎡)", value=60.0, step=0.1)
-    with col2:
-        year_built = st.number_input("築年 (西暦)", min_value=1970, max_value=2026, value=2015)
+    area = st.number_input("専有面積 (㎡)", value=60.0)
+    year = st.number_input("築年 (西暦)", value=2015)
 
     if st.button("AI精密査定を実行"):
-        # AI入力用の空データフレーム作成
-        input_df = pd.DataFrame(np.zeros((1, len(model_columns))), columns=model_columns)
-        input_df['area'] = area
-        input_df['age'] = 2026 - year_built
+        input_data = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
+        input_data['area'] = area
+        input_data['age'] = 2026 - year
         
-        # 選択された地点のフラグを1にする（これで地点ごとの単価が反映されます）
-        target_col = f'地点_{selected_loc}'
-        
-        if target_col in model_columns:
-            input_df[target_col] = 1.0
-            predicted_price = model.predict(input_df)[0]
+        target = f'地点_{selected_loc}'
+        if target in cols:
+            input_data[target] = 1.0
+            # 単価予測
+            predicted_unit_price = model.predict(input_data)[0]
+            total = predicted_unit_price * area
             
-            # 結果表示（指示通りカッコなし）
-            st.markdown('<div class="result-card">', unsafe_allow_html=True)
-            st.write(f"### 📍 {selected_ward} {display_map[selected_loc]}")
-            st.markdown(f'<div class="main-price">標準AI査定価格: {int(predicted_price):,} 円</div>', unsafe_allow_html=True)
+            # 賃料予測 (想定利回り4%で算出)
+            monthly_rent = (total * 0.04) / 12
             
-            st.divider()
-            st.write("#### 💎 ブランドマンション・プレミアム査定")
+            st.markdown("---")
+            # 指定通りカッコなし
+            st.success(f"📍 {selected_loc.replace('東京都','')}\n\n標準AI査定価格: {int(total):,} 円")
+            
+            # 賃料予測の表示
+            st.warning(f"想定月額賃料: {int(monthly_rent):,} 円")
+            
             c1, c2 = st.columns(2)
-            with c1:
-                st.write("**メジャー7価格**")
-                st.write(f"### {int(predicted_price * 1.25):,} 円")
-            with c2:
-                st.write("**ランドマーク価格**")
-                st.write(f"### {int(predicted_price * 1.15):,} 円")
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.error("地点の照合に失敗しました。学習データを確認してください。")
+            with c1: st.info(f"メジャー7価格: {int(total * 1.25):,} 円")
+            with c2: st.info(f"ランドマーク価格: {int(total * 1.15):,} 円")
