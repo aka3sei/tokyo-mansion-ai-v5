@@ -8,6 +8,7 @@ import re
 @st.cache_resource
 def load_all():
     try:
+        # 学習強化した最新のモデルファイルを読み込む
         with open('real_estate_ai_v5_final.pkl', 'rb') as f:
             return pickle.load(f)
     except:
@@ -21,7 +22,7 @@ st.markdown("""
 <style>
     .result-card { padding: 25px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; margin: 20px 0; }
     .price-large { font-size: 32px; font-weight: bold; color: #1e3a8a; }
-    .brand-section { margin-top: 30px; border-top: 2px solid #eee; pt: 20px; }
+    .brand-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
     .brand-tier { padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 6px solid #ccc; }
     .tier-top { border-left-color: #b45309; background-color: #fffbeb; } /* 最高級 */
     .tier-high { border-left-color: #0369a1; background-color: #f0f9ff; } /* 高級 */
@@ -44,37 +45,39 @@ if data:
     loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
     selected_loc = st.selectbox("2. 地点を選択", loc_options, format_func=lambda x: x.split(ward)[-1])
     
-    # --- 入力項目の一部変更 ---
-col1, col2, col3 = st.columns(3)
-with col1:
-    area = st.number_input("専有面積 (㎡)", value=60.0)
-with col2:
-    year_built = st.number_input("築年 (西暦)", value=2015)
-with col3:
-    walk_dist = st.number_input("駅徒歩 (分)", value=8, min_value=1, max_value=30)
+    # --- 入力項目：築年数と駅距離（利便性）の軸を強化 ---
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        area = st.number_input("専有面積 (㎡)", value=60.0)
+    with col2:
+        year_built = st.number_input("築年 (西暦)", value=2015)
+    with col3:
+        # 駅徒歩分数を入力。これがAI学習の重要な利便性指標になります
+        walk_dist = st.number_input("駅徒歩 (分)", value=8, min_value=1, max_value=30)
 
-if st.button("AI精密査定を実行"):
-    input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
-    input_df['area'] = area
-    input_df['age'] = 2026 - year_built
-    input_df['walk'] = walk_dist # 学習させた駅距離をセット
-    input_df[f'地点_{selected_loc}'] = 1.0
-    
-    # 予測実行
-    base = base_prices.get(selected_loc, 0)
-    ratio = model.predict(input_df)[0]
-    std_price = base * ratio * area
+    if st.button("AI精密査定を実行"):
+        # 入力データの組み立て
+        input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
+        input_df['area'] = area
+        input_df['age'] = 2026 - year_built
+        input_df['walk'] = walk_dist 
+        input_df[f'地点_{selected_loc}'] = 1.0
         
+        # AIによる予測実行
+        base = base_prices.get(selected_loc, 0)
+        ratio = model.predict(input_df)[0]
+        std_price = base * ratio * area
+        
+        # --- 結果表示 ---
         st.markdown("---")
         st.markdown(f"### 📍 {selected_loc.replace('東京都','')}")
         
-        # 標準査定額
         st.markdown('<div class="result-card">', unsafe_allow_html=True)
-        st.write("標準的なマンション（一般分譲・地元デベ等）のAI査定価格")
-        st.markdown(f'<div class="price-large">査定額: {int(std_price):,} 円</div>', unsafe_allow_html=True)
+        st.write(f"駅徒歩{walk_dist}分・築{2026-year_built}年の標準的なマンション")
+        st.markdown(f'<div class="price-large">AI査定価格: {int(std_price):,} 円</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- モダンリビング参照：ブランド別プレミアム査定 ---
+        # --- ブランド別プレミアム査定 ---
         st.markdown('<div class="brand-section">', unsafe_allow_html=True)
         st.write("### 💎 デベロッパー別・ブランドグレード査定")
 
@@ -114,4 +117,5 @@ if st.button("AI精密査定を実行"):
         </div>
         """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-
+else:
+    st.error("AIモデルが読み込めませんでした。学習済みファイルをアップロードしてください。")
