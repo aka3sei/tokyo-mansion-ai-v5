@@ -44,18 +44,26 @@ if data:
     loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
     selected_loc = st.selectbox("2. 地点を選択", loc_options, format_func=lambda x: x.split(ward)[-1])
     
-    col1, col2 = st.columns(2)
-    with col1: area = st.number_input("専有面積 (㎡)", value=60.0)
-    with col2: year_built = st.number_input("築年 (西暦)", value=2015)
+    # --- 入力項目の一部変更 ---
+col1, col2, col3 = st.columns(3)
+with col1:
+    area = st.number_input("専有面積 (㎡)", value=60.0)
+with col2:
+    year_built = st.number_input("築年 (西暦)", value=2015)
+with col3:
+    walk_dist = st.number_input("駅徒歩 (分)", value=8, min_value=1, max_value=30)
 
-    if st.button("AI精密査定を実行"):
-        input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
-        input_df['area'], input_df['age'] = area, 2026 - year_built
-        input_df[f'地点_{selected_loc}'] = 1.0
-        
-        base = base_prices.get(selected_loc, 0)
-        ratio = model.predict(input_df)[0]
-        std_price = base * ratio * area
+if st.button("AI精密査定を実行"):
+    input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
+    input_df['area'] = area
+    input_df['age'] = 2026 - year_built
+    input_df['walk'] = walk_dist # 学習させた駅距離をセット
+    input_df[f'地点_{selected_loc}'] = 1.0
+    
+    # 予測実行
+    base = base_prices.get(selected_loc, 0)
+    ratio = model.predict(input_df)[0]
+    std_price = base * ratio * area
         
         st.markdown("---")
         st.markdown(f"### 📍 {selected_loc.replace('東京都','')}")
@@ -106,3 +114,4 @@ if data:
         </div>
         """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+
