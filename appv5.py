@@ -9,29 +9,32 @@ import plotly.graph_objects as go
 @st.cache_resource
 def load_all():
     try:
-        # pklに 'base_unit_prices' と 'alpha_thresholds' が含まれている前提
+        # ファイルの存在確認ログ（デバッグ用）
+        import os
+        if not os.path.exists('real_estate_ai_v5_final.pkl'):
+            st.error("エラー: real_estate_ai_v5_final.pkl がリポジトリに見つかりません。")
+            return None
+
         with open('real_estate_ai_v5_final.pkl', 'rb') as f:
             data = pickle.load(f)
         return data
     except Exception as e:
+        # 読み込み失敗の具体的な理由を表示
+        st.error(f"詳細な読み込みエラー: {e}")
         return None
 
 data = load_all()
 
 # --- 2. パラメータ演算ロジック（αを10段階で判定） ---
-def calculate_5_params(selected_loc, walk_dist, tier_value, area, data):
-    # α: 地点固有地力 (pkl内の辞書から単価を引き、統計しきい値で10段階判定)
-    # ※ pkl作成時に base_unit_prices(辞書) と alpha_thresholds(リスト) を入れておく
-    base_unit_prices = data.get('base_unit_prices', {}) 
-    alpha_thresholds = data.get('alpha_thresholds', []) 
+def calculate_5_params(selected_loc, walk_dist, tier_value, area, base_price_val):
+    # CSVから算出した正確な10段階閾値（円単位）
+    alpha_thresholds = [
+        506539, 623281, 711580, 794281, 895302, 
+        1027349, 1224206, 1514582, 2058197
+    ]
     
-    u_price = base_unit_prices.get(selected_loc, 0)
-    
-    # 統計データに基づき1〜10に分類（データがない場合は中央値5）
-    if len(alpha_thresholds) > 0:
-        alpha_score = int(np.digitize(u_price, alpha_thresholds[1:-1]) + 1)
-    else:
-        alpha_score = 5
+    # α: 地点固有地力 (AIの予測単価を正確な統計データと比較)
+    alpha_score = int(np.digitize(base_price_val, alpha_thresholds) + 1)
     
     # μ: 地点利便性指数
     mu_score = max(1, 11 - (walk_dist if walk_dist <= 5 else 5 + (walk_dist-5)//2))
@@ -39,7 +42,7 @@ def calculate_5_params(selected_loc, walk_dist, tier_value, area, data):
     # β: アセット・クオリティ係数
     beta_score = {1.25: 10, 1.15: 8, 1.05: 6}.get(tier_value, 4)
     
-    # λ: 面積寄与の非線形性 (地力αが低いエリアほど、広さの希少性を高く評価)
+    # λ: 面積寄与の非線形性
     lambda_score = min(10, int(area / 10) + (5 - alpha_score // 2))
     
     # γ: 時系列動態モメンタム
@@ -140,3 +143,4 @@ if data:
         
 else:
     st.error("AIモデルの読み込みに失敗しました。")
+
