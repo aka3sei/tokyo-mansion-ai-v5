@@ -8,6 +8,7 @@ import re
 @st.cache_resource
 def load_all():
     try:
+        # モデルファイルを読み込み
         with open('real_estate_ai_v5_final.pkl', 'rb') as f:
             return pickle.load(f)
     except Exception as e:
@@ -20,22 +21,28 @@ def calculate_5_params(walk_dist, area, base_price_val):
     alpha_thresholds = [535132, 664447, 771631, 875837, 978161, 1094232, 1229757, 1458726, 1847825]
     val = float(base_price_val) if base_price_val else 875837.0
     alpha_score = int(np.digitize(val, alpha_thresholds) + 1)
+    
+    # 利便性 μ / 希少性 λ / 動態 γ
     mu_score = max(1, 11 - (walk_dist if walk_dist <= 5 else 5 + (walk_dist-5)//2))
-    lambda_score = min(10, int(area / 10) + (5 - alpha_score // 2))
+    lambda_score = min(10, max(1, int(area / 20) + (1 if area > 100 else 0)))
     gamma_score = min(10, 4 + (alpha_score // 2))
+    
     return {"alpha": alpha_score, "mu": mu_score, "lambda": lambda_score, "gamma": gamma_score}
 
 # --- 3. 画面デザイン設定 ---
 st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
 
-# スタイルのみ先に定義
+# CSSスタイル定義
 st.markdown("""
 <style>
-    .report-frame { padding: 15px; border: 1px solid #e2e8f0; border-radius: 12px; margin-top: 20px; font-family: sans-serif; }
+    .report-frame { padding: 15px; border: 1px solid #e2e8f0; border-radius: 12px; margin-top: 20px; font-family: sans-serif; background-color: #ffffff; }
     .price-box { font-size: 40px; font-weight: bold; color: #1e293b; margin: 5px 0; }
     .label-gold { color: #b45309; font-size: 11px; font-weight: bold; letter-spacing: 1px; }
     .row-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    .log-box { font-family: 'Courier New', monospace; font-size: 11px; background: #f8fafc; padding: 15px; border-radius: 8px; color: #166534; border: 1px solid #e2e8f0; margin-top: 20px; line-height: 1.6; }
+    /* 解析ログ全体のボックス */
+    .audit-container { padding: 20px; border-radius: 10px; margin-top: 25px; font-family: 'Courier New', monospace; border: 1px solid #ddd; }
+    /* 結論（CONCLUSION）の大きな文字 */
+    .conclusion-text { font-size: 24px; font-weight: bold; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -47,6 +54,7 @@ if data:
     df_towns = pd.DataFrame({'full': towns})
     df_towns['ward'] = df_towns['full'].apply(lambda x: re.search(r'東京都(.*?区)', x).group(1))
     
+    # --- 入力 UI ---
     ward = st.selectbox("1. 区を選択してください", sorted(df_towns['ward'].unique()))
     loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
     selected_loc = st.selectbox("2. 地点を選択してください", loc_options, format_func=lambda x: x.split(ward)[-1])
@@ -57,6 +65,7 @@ if data:
     walk_dist = c3.number_input("駅徒歩 分", value=8, min_value=1)
 
     if st.button("AI精密査定を実行"):
+        # 推計計算
         input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
         input_df['area'], input_df['age'], input_df['walk'] = area, 2026 - year_built, walk_dist
         input_df[f'地点_{selected_loc}'] = 1.0
@@ -66,8 +75,21 @@ if data:
         std_price = base_price_val * ratio * area
         p = calculate_5_params(walk_dist, area, base_price_val)
 
-        # 全体のHTMLを変数として構築（改行によるエラーを防ぐ）
-        html_content = f"""
+        # --- 収束ロジック判定（±10%以内か） ---
+        is_converged = 0.90 <= ratio <= 1.10
+        if is_converged:
+            conclusion_text = "理論均衡価格への高い収束性を確認。"
+            status_color = "#166534" # 緑
+            status_bg = "#f0fdf4"
+        else:
+            conclusion_text = "理論均衡価格への収束を確認できず（特殊条件）"
+            status_color = "#b91c1c" # 赤
+            status_bg = "#fef2f2"
+
+        st.markdown("---")
+        
+        # メインレポートHTML
+        html_report = f"""
         <div class="report-frame">
             <h3 style="color: #0f172a; margin: 0;">📍 {selected_loc.replace('東京都','')}</h3>
             <p style="color: #64748b; font-size: 13px;">{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
@@ -90,17 +112,21 @@ if data:
                     </div>
                 </div>
             </div>
-            <div class="log-box">
-                >> ANALYSIS_SEQUENCE_COMPLETE...<br>
-                >> ALPHA_RANK_{p['alpha']} / MU_RANK_{p['mu']} / GAMMA_RANK_{p['gamma']}<br>
-                >> LAMBDA_NON_LINEAR_RATIO: {p['lambda']*10}%<br>
-                >> MARKET_INEFFICIENCY_DELTA EVALUATED<br>
-                >> CONCLUSION: 理論均衡価格への高い収束性を確認。
+            
+            <div class="audit-container" style="background-color: {status_bg}; border-color: {status_color};">
+                <div style="color: {status_color}; opacity: 0.8; font-size: 12px;">
+                    >> ANALYSIS_SEQUENCE_COMPLETE...<br>
+                    >> ALPHA_RANK_{p['alpha']} / MU_RANK_{p['mu']} / GAMMA_RANK_{p['gamma']}<br>
+                    >> LAMBDA_NON_LINEAR_RATIO: {p['lambda']*10}%<br>
+                    >> MARKET_INEFFICIENCY_DELTA EVALUATED
+                </div>
+                <div class="conclusion-text" style="color: {status_color}; border-color: {status_color};">
+                    >> {conclusion_text}
+                </div>
             </div>
         </div>
         """
-        st.markdown("---")
-        st.markdown(html_content, unsafe_allow_html=True)
+        st.markdown(html_report, unsafe_allow_html=True)
 
 else:
-    st.error("モデルが見つかりません。")
+    st.error("モデルファイルが見つかりません。")
