@@ -8,7 +8,6 @@ import re
 @st.cache_resource
 def load_all():
     try:
-        # モデルファイルを読み込み
         with open('real_estate_ai_v5_final.pkl', 'rb') as f:
             return pickle.load(f)
     except Exception as e:
@@ -21,31 +20,13 @@ def calculate_5_params(walk_dist, area, base_price_val):
     alpha_thresholds = [535132, 664447, 771631, 875837, 978161, 1094232, 1229757, 1458726, 1847825]
     val = float(base_price_val) if base_price_val else 875837.0
     alpha_score = int(np.digitize(val, alpha_thresholds) + 1)
-    
-    # 利便性 μ / 希少性 λ / 動態 γ
     mu_score = max(1, 11 - (walk_dist if walk_dist <= 5 else 5 + (walk_dist-5)//2))
     lambda_score = min(10, max(1, int(area / 20) + (1 if area > 100 else 0)))
     gamma_score = min(10, 4 + (alpha_score // 2))
-    
     return {"alpha": alpha_score, "mu": mu_score, "lambda": lambda_score, "gamma": gamma_score}
 
-# --- 3. 画面デザイン設定 ---
+# --- 3. メイン画面 ---
 st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
-
-# CSSスタイル定義
-st.markdown("""
-<style>
-    .report-frame { padding: 15px; border: 1px solid #e2e8f0; border-radius: 12px; margin-top: 20px; font-family: sans-serif; background-color: #ffffff; }
-    .price-box { font-size: 40px; font-weight: bold; color: #1e293b; margin: 5px 0; }
-    .label-gold { color: #b45309; font-size: 11px; font-weight: bold; letter-spacing: 1px; }
-    .row-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    /* 解析ログ全体のボックス */
-    .audit-container { padding: 20px; border-radius: 10px; margin-top: 25px; font-family: 'Courier New', monospace; border: 1px solid #ddd; }
-    /* 結論（CONCLUSION）の大きな文字 */
-    .conclusion-text { font-size: 24px; font-weight: bold; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px; }
-</style>
-""", unsafe_allow_html=True)
-
 st.title("🏙️ 23区精密エリアAI査定")
 
 if data:
@@ -54,7 +35,6 @@ if data:
     df_towns = pd.DataFrame({'full': towns})
     df_towns['ward'] = df_towns['full'].apply(lambda x: re.search(r'東京都(.*?区)', x).group(1))
     
-    # --- 入力 UI ---
     ward = st.selectbox("1. 区を選択してください", sorted(df_towns['ward'].unique()))
     loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
     selected_loc = st.selectbox("2. 地点を選択してください", loc_options, format_func=lambda x: x.split(ward)[-1])
@@ -65,7 +45,6 @@ if data:
     walk_dist = c3.number_input("駅徒歩 分", value=8, min_value=1)
 
     if st.button("AI精密査定を実行"):
-        # 推計計算
         input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
         input_df['area'], input_df['age'], input_df['walk'] = area, 2026 - year_built, walk_dist
         input_df[f'地点_{selected_loc}'] = 1.0
@@ -75,7 +54,7 @@ if data:
         std_price = base_price_val * ratio * area
         p = calculate_5_params(walk_dist, area, base_price_val)
 
-        # --- 収束ロジック判定（±10%以内か） ---
+        # 判定ロジック（±10%以内か）
         is_converged = 0.90 <= ratio <= 1.10
         if is_converged:
             conclusion_text = "理論均衡価格への高い収束性を確認。"
@@ -88,45 +67,44 @@ if data:
 
         st.markdown("---")
         
-        # メインレポートHTML
-        html_report = f"""
-        <div class="report-frame">
+        # すべてのスタイルを直接タグに書き込み（バグ回避）
+        st.markdown(f"""
+        <div style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; font-family: sans-serif; background-color: #ffffff;">
             <h3 style="color: #0f172a; margin: 0;">📍 {selected_loc.replace('東京都','')}</h3>
             <p style="color: #64748b; font-size: 13px;">{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
+            
             <div style="display: flex; flex-wrap: wrap; margin-top: 25px; gap: 20px;">
                 <div style="flex: 1; min-width: 250px;">
-                    <div class="row-item"><span style="color:#64748b;">地点固有地力 α</span><span style="font-weight:bold;">Rank {p['alpha']}</span></div>
-                    <div class="row-item"><span style="color:#64748b;">地点利便性指数 μ</span><span style="font-weight:bold;">Rank {p['mu']}</span></div>
-                    <div class="row-item"><span style="color:#64748b;">面積希少性 λ</span><span style="font-weight:bold;">Rank {p['lambda']}</span></div>
-                    <div class="row-item"><span style="color:#64748b;">時系列動態 γ</span><span style="font-weight:bold;">Rank {p['gamma']}</span></div>
-                    <div class="row-item" style="border:none;"><span style="color:#64748b;">市場非効率性 δ</span><span style="color:#b45309; font-weight:bold;">分析完了</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px;"><span style="color:#64748b;">地点固有地力 α</span><span style="font-weight:bold;">Rank {p['alpha']}</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px;"><span style="color:#64748b;">地点利便性指数 μ</span><span style="font-weight:bold;">Rank {p['mu']}</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px;"><span style="color:#64748b;">面積希少性 λ</span><span style="font-weight:bold;">Rank {p['lambda']}</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px;"><span style="color:#64748b;">時系列動態 γ</span><span style="font-weight:bold;">Rank {p['gamma']}</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px;"><span style="color:#64748b;">市場非効率性 δ</span><span style="color:#b45309; font-weight:bold;">分析完了</span></div>
                 </div>
                 <div style="flex: 1; min-width: 250px; text-align: right; border-left: 2px solid #f1f5f9; padding-left: 25px;">
-                    <div class="label-gold">AI THEORETICAL PRICE</div>
-                    <div class="price-box">{int(std_price):,} <span style="font-size: 18px; color: #64748b; font-weight: normal;">円</span></div>
+                    <div style="color: #b45309; font-size: 11px; font-weight: bold; letter-spacing: 1px;">AI THEORETICAL PRICE</div>
+                    <div style="font-size: 40px; font-weight: bold; color: #1e293b; margin: 5px 0;">{int(std_price):,} <span style="font-size: 18px; color: #64748b; font-weight: normal;">円</span></div>
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #f1f5f9; text-align: left;">
-                        <div style="color: #64748b; font-size: 12px; margin-bottom: 5px;">グレード別推計</div>
                         <div style="color: #1e293b; font-size: 14px;">Tier 1: {int(std_price * 1.25):,} 円</div>
                         <div style="color: #1e293b; font-size: 14px;">Tier 2: {int(std_price * 1.15):,} 円</div>
                         <div style="color: #1e293b; font-size: 14px;">Tier 3: {int(std_price * 1.05):,} 円</div>
                     </div>
                 </div>
             </div>
-            
-            <div class="audit-container" style="background-color: {status_bg}; border-color: {status_color};">
-                <div style="color: {status_color}; opacity: 0.8; font-size: 12px;">
+
+            <div style="background-color: {status_bg}; padding: 25px; border-radius: 12px; border: 2px solid {status_color}; margin-top: 30px;">
+                <div style="font-family: 'Courier New', monospace; font-size: 12px; color: {status_color}; opacity: 0.7; line-height: 1.5;">
                     >> ANALYSIS_SEQUENCE_COMPLETE...<br>
                     >> ALPHA_RANK_{p['alpha']} / MU_RANK_{p['mu']} / GAMMA_RANK_{p['gamma']}<br>
                     >> LAMBDA_NON_LINEAR_RATIO: {p['lambda']*10}%<br>
                     >> MARKET_INEFFICIENCY_DELTA EVALUATED
                 </div>
-                <div class="conclusion-text" style="color: {status_color}; border-color: {status_color};">
+                <div style="font-size: 28px; font-weight: 900; color: {status_color}; margin-top: 20px; border-top: 2px solid {status_color}; padding-top: 15px; line-height: 1.2;">
                     >> {conclusion_text}
                 </div>
             </div>
         </div>
-        """
-        st.markdown(html_report, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 else:
-    st.error("モデルファイルが見つかりません。")
+    st.error("モデルが見つかりません。")
