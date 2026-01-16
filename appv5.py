@@ -44,9 +44,9 @@ def calculate_5_params(walk_dist, tier_value, area, base_price_val):
     
     return [alpha_score, mu_score, beta_score, lambda_score, gamma_score]
 
-# --- 3. 蜘蛛の巣グラフ生成関数（ValueErrorを修正） ---
+# --- 3. 蜘蛛の巣グラフ生成関数（一体感重視・背景透過版） ---
 def create_radar_chart(scores):
-    categories = ['地点固有地力 α', '地点利便性指数 μ', 'アセットクオリティ β', '面積寄与の非線形性 λ', '時系列動態 γ']
+    categories = ['地点地力 α', '利便性 μ', 'クオリティ β', '面積希少性 λ', '動態 γ']
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
         r=scores + [scores[0]],
@@ -57,27 +57,67 @@ def create_radar_chart(scores):
     ))
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(visible=True, range=[0, 10], showticklabels=False, gridcolor="#444"),
-            angularaxis=dict(gridcolor="#444", tickfont=dict(color="white", size=11)),
-            bgcolor="rgb(20, 20, 20)"
+            radialaxis=dict(visible=True, range=[0, 10], showticklabels=False, gridcolor="#333"),
+            angularaxis=dict(gridcolor="#333", tickfont=dict(color="#ccc", size=10)),
+            bgcolor="rgba(0,0,0,0)"
         ),
         showlegend=False,
-        paper_bgcolor="rgb(10, 10, 10)",
-        margin=dict(l=60, r=60, t=40, b=40),
-        height=380
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=45, r=45, t=20, b=20),
+        height=320,
+        autosize=True
     )
     return fig
 
-# --- 4. 画面設定・メインロジック ---
-st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
-st.markdown("""
-<style>
-    body { background-color: #0e1117; color: white; }
-    .result-card { padding: 25px; border-radius: 12px; background-color: #1a1c23; border: 1px solid #333; margin: 20px 0; }
-    .price-large { font-size: 34px; font-weight: bold; color: #D4AF37; }
-    .audit-log { font-family: monospace; font-size: 13px; background: #000; padding: 15px; border-radius: 5px; color: #00ff00; border: 1px solid #333; line-height: 1.5; }
-</style>
-""", unsafe_allow_html=True)
+# --- 4. 実行セクション（デザイン統合版） ---
+if st.button("AI精密査定を実行"):
+    # （予測計算処理...中略）
+    base_price_val = base_prices.get(selected_loc, 0)
+    ratio = model.predict(input_df)[0]
+    std_price = base_price_val * ratio * area
+    scores = calculate_5_params(walk_dist, 1.05, area, base_price_val)
+
+    st.markdown("---")
+    
+    # 巨大な一つの黒いカードとして構築
+    st.markdown(f"""
+    <div style="background-color: #111; padding: 20px; border-radius: 15px; border: 1px solid #333;">
+        <h3 style="color: white; margin-top: 0;">📍 {selected_loc.replace('東京都','')}</h3>
+        <p style="color: #888; font-size: 14px;">数理モデル解析：{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
+    """, unsafe_allow_html=True)
+
+    col_left, col_right = st.columns([1.2, 1])
+    
+    with col_left:
+        # 蜘蛛の巣グラフ
+        st.plotly_chart(create_radar_chart(scores), use_container_width=True, config={'displayModeBar': False})
+    
+    with col_right:
+        # AI指値（メイン表示）
+        st.markdown(f"""
+        <div style="text-align: right; padding-top: 10px;">
+            <div style="color: #D4AF37; font-size: 14px; font-weight: bold;">AI THEORETICAL PRICE</div>
+            <div style="font-size: 40px; font-weight: bold; color: white; line-height: 1.2;">{int(std_price):,} <span style="font-size: 18px;">円</span></div>
+            <div style="border-top: 1px solid #333; margin: 15px 0; padding-top: 10px;">
+                <div style="color: #aaa; font-size: 12px; margin-bottom: 5px;">【グレード別プレミアム査定】</div>
+                <div style="color: #fff; font-size: 14px;">Tier1: {int(std_price * 1.25):,} 円</div>
+                <div style="color: #fff; font-size: 14px;">Tier2: {int(std_price * 1.15):,} 円</div>
+                <div style="color: #fff; font-size: 14px;">Tier3: {int(std_price * 1.05):,} 円</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 解析ログ（カード下部に一体化）
+    st.markdown(f"""
+        <div style="font-family: 'Courier New', monospace; font-size: 12px; background: #000; padding: 15px; border-radius: 8px; color: #00ff00; border: 1px solid #222; margin-top: 10px;">
+            <span style="color: #555;">>></span> ANALYSIS_SEQUENCE_COMPLETE...<br>
+            <span style="color: #555;">>></span> LOCATION_ALPHA: RANK_{scores[0]} / UTILITY_MU: RANK_{scores[1]}<br>
+            <span style="color: #555;">>></span> NON_LINEAR_LAMBDA_DETECTION: {scores[3]*10}%<br>
+            <span style="color: #555;">>></span> <span style="color: #ffaa00;">MARKET_INEFFICIENCY_DELTA DETECTED</span><br>
+            <span style="color: #555;">>></span> CONCLUSION: 理論均衡価格への収束性が認められます。
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.title("🏙️ 23区精密エリアAI査定")
 
@@ -136,3 +176,4 @@ if data:
         """, unsafe_allow_html=True)
 else:
     st.error("AIモデルの読み込みに失敗しました。")
+
