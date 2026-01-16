@@ -54,8 +54,8 @@ if data:
         std_price = base_price_val * ratio * area
         p = calculate_5_params(walk_dist, area, base_price_val)
 
-        # 判定ロジック（±10%以内か）
-        is_converged = 0.90 <= ratio <= 1.10
+        # 判定ロジック（±15%以内か）
+        is_converged = 0.85 <= ratio <= 1.15
         if is_converged:
             conclusion_text = "理論均衡価格への高い収束性を確認。"
             status_color = "#166534" # 緑
@@ -74,3 +74,4 @@ if data:
 
 else:
     st.error("モデルが見つかりません。")
+
