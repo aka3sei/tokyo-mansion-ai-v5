@@ -70,6 +70,10 @@ if data:
         std_price = base * ratio * area
         
         # --- 結果表示（カッコなし） ---
+
+        st.markdown("---")
+        st.markdown(f"### 📍 {selected_loc.replace('東京都','')}")
+        
         st.markdown('<div class="result-card">', unsafe_allow_html=True)
         st.write(f"専有面積 {area}㎡ / 築{2026-year_built}年 / 駅徒歩{walk_dist}分")
         
@@ -80,10 +84,10 @@ if data:
         st.markdown("<br>", unsafe_allow_html=True) # 少し余白
         
         # 2. ブランド別価格を羅列
-        st.write("ブランドグレード別・推定成約価格")
-        st.write(f"1. 最高級ブランド（パークマンション等）: {int(std_price * 1.25):,} 円")
-        st.write(f"2. 高級ブランド（パークコート・タワー等）: {int(std_price * 1.15):,} 円")
-        st.write(f"3. スタンダード大手（パークホームズ等）: {int(std_price * 1.05):,} 円")
+        st.write("ブランドグレード別")
+        st.write(f"1. 最高級グレード: {int(std_price * 1.25):,} 円")
+        st.write(f"2. 高級グレード: {int(std_price * 1.15):,} 円")
+        st.write(f"3. スタンダード大手グレード: {int(std_price * 1.05):,} 円")
         
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -130,5 +134,6 @@ if data:
 
 else:
     st.error("モデルファイル real_estate_ai_v5_final.pkl が見つかりません。")
+
 
 
