@@ -75,8 +75,8 @@ if data:
         
         st.markdown('<div class="result-card">', unsafe_allow_html=True)
         st.write(f"専有面積 {area}㎡ / 築{2026-year_built}年 / 駅徒歩{walk_dist}分")
-        st.write("標準的なマンションのAI査定価格")
-        st.markdown(f'<div class="price-large">査定額: {int(std_price):,} 円</div>', unsafe_allow_html=True)
+        st.write("標準的なマンション")
+        st.markdown(f'<div class="price-large">AI指値: {int(std_price):,} 円</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         # --- モダンリビング参照：ブランドグレード別詳細査定 ---
@@ -122,3 +122,4 @@ if data:
 
 else:
     st.error("モデルファイル real_estate_ai_v5_final.pkl が見つかりません。")
+
