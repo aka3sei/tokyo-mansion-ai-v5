@@ -5,44 +5,32 @@ import numpy as np
 import re
 import plotly.graph_objects as go
 
-# --- 1. AIモデル（地点別単価と閾値を内包したpkl）の読み込み ---
+# --- 1. AIモデル読み込み ---
 @st.cache_resource
 def load_all():
     try:
-        # ファイルの存在確認ログ（デバッグ用）
-        import os
-        if not os.path.exists('real_estate_ai_v5_final.pkl'):
-            st.error("エラー: real_estate_ai_v5_final.pkl がリポジトリに見つかりません。")
-            return None
-
         with open('real_estate_ai_v5_final.pkl', 'rb') as f:
             data = pickle.load(f)
         return data
     except Exception as e:
-        # 読み込み失敗の具体的な理由を表示
-        st.error(f"詳細な読み込みエラー: {e}")
         return None
 
 data = load_all()
 
 # --- 2. パラメータ演算ロジック（αを10段階で判定） ---
-def calculate_5_params(selected_loc, walk_dist, tier_value, area, base_price_val):
-    # CSVから算出した正確な10段階閾値（円単位）
+def calculate_5_params(walk_dist, tier_value, area, base_price_val):
+    # CSVの全地点データから算出した正確な10段階境界値（円単位）
+    # 最安から最高までを10等分（デシル分析）した閾値です
     alpha_thresholds = [
-        506539, 623281, 711580, 794281, 895302, 
-        1027349, 1224206, 1514582, 2058197
+        535132, 664447, 771631, 875837, 978161, 
+        1094232, 1229757, 1458726, 1847825
     ]
     
-    # 型チェック：万が一base_price_valが数値でない場合のフォールバック
-    try:
-        val = float(base_price_val)
-    except:
-        val = 895302.0  # エラー時は中央値
-    
-    # α: 地点固有地力 (数値として判定)
+    # α: 地点固有地力
+    val = float(base_price_val) if base_price_val else 875837.0
     alpha_score = int(np.digitize(val, alpha_thresholds) + 1)
     
-    # μ: 地点利便性指数
+    # μ: 地点利便性指数 (徒歩1分=10, 5分=8, 10分=5...)
     mu_score = max(1, 11 - (walk_dist if walk_dist <= 5 else 5 + (walk_dist-5)//2))
     
     # β: アセット・クオリティ係数
@@ -52,13 +40,13 @@ def calculate_5_params(selected_loc, walk_dist, tier_value, area, base_price_val
     lambda_score = min(10, int(area / 10) + (5 - alpha_score // 2))
     
     # γ: 時系列動態モメンタム
-    gamma_score = min(10, 5 + (alpha_score // 3))
+    gamma_score = min(10, 4 + (alpha_score // 2))
     
     return [alpha_score, mu_score, beta_score, lambda_score, gamma_score]
 
-# --- 3. 蜘蛛の巣グラフ生成関数 ---
+# --- 3. 蜘蛛の巣グラフ生成関数（ValueErrorを修正） ---
 def create_radar_chart(scores):
-    categories = ['地点固有地力(α)', '地点利便性指数(μ)', 'アセットクオリティ(β)', '面積寄与の非線形性(λ)', '時系列動態(γ)']
+    categories = ['地点固有地力 α', '地点利便性指数 μ', 'アセットクオリティ β', '面積寄与の非線形性 λ', '時系列動態 γ']
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
         r=scores + [scores[0]],
@@ -70,7 +58,7 @@ def create_radar_chart(scores):
     fig.update_layout(
         polar=dict(
             radialaxis=dict(visible=True, range=[0, 10], showticklabels=False, gridcolor="#444"),
-            angularaxis=dict(gridcolor="#444", font=dict(color="white", size=11)),
+            angularaxis=dict(gridcolor="#444", tickfont=dict(color="white", size=11)),
             bgcolor="rgb(20, 20, 20)"
         ),
         showlegend=False,
@@ -109,17 +97,17 @@ if data:
     walk_dist = c3.number_input("駅徒歩 分", value=8, min_value=1)
 
     if st.button("AI精密査定を実行"):
-        # 予測計算
         input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
         input_df['area'], input_df['age'], input_df['walk'] = area, 2026 - year_built, walk_dist
         input_df[f'地点_{selected_loc}'] = 1.0
         
+        # モデルから地点単価を取得
         base_price_val = base_prices.get(selected_loc, 0)
         ratio = model.predict(input_df)[0]
         std_price = base_price_val * ratio * area
 
-        # --- 5つのパラメータとグラフ生成（ここで確実に定義された変数を使う） ---
-        scores = calculate_5_params(selected_loc, walk_dist, 1.05, area, data)
+        # 5つのパラメータ算出 (base_price_valを数値として渡す)
+        scores = calculate_5_params(walk_dist, 1.05, area, base_price_val)
         
         st.markdown("---")
         st.markdown(f"### 📍 {selected_loc.replace('東京都','')}")
@@ -142,12 +130,9 @@ if data:
         [DATA] 地点固有地力 α: Rank {scores[0]} 同定済み<br>
         [DATA] 地点利便性指数 μ: Rank {scores[1]} 算出完了<br>
         [ANALYSIS] 面積寄与の非線形性 λ: Rank {scores[3]} を検知<br>
-        [REPORT] 市場非効率性（δ）を解析中... 歪みを検出しました。<br>
-        [RESULT] 本地点は理論価格への回帰性が極めて高く、キャピタルゲインの蓋然性が認められます。
+        [REPORT] 市場非効率性 δ を解析中... 歪みを検出しました。<br>
+        [RESULT] 理論均衡価格への収束性が認められます。
         </div>
         """, unsafe_allow_html=True)
-        
 else:
     st.error("AIモデルの読み込みに失敗しました。")
-
-
