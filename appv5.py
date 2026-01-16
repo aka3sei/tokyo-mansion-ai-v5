@@ -16,77 +16,26 @@ def load_all():
 data = load_all()
 
 # --- 2. パラメータ演算ロジック ---
-def calculate_5_params(walk_dist, tier_value, area, base_price_val):
+def calculate_5_params(walk_dist, area, base_price_val):
     alpha_thresholds = [535132, 664447, 771631, 875837, 978161, 1094232, 1229757, 1458726, 1847825]
     val = float(base_price_val) if base_price_val else 875837.0
     alpha_score = int(np.digitize(val, alpha_thresholds) + 1)
     mu_score = max(1, 11 - (walk_dist if walk_dist <= 5 else 5 + (walk_dist-5)//2))
     lambda_score = min(10, int(area / 10) + (5 - alpha_score // 2))
     gamma_score = min(10, 4 + (alpha_score // 2))
-    
-    return {
-        "alpha": alpha_score,
-        "mu": mu_score,
-        "lambda": lambda_score,
-        "gamma": gamma_score
-    }
+    return {"alpha": alpha_score, "mu": mu_score, "lambda": lambda_score, "gamma": gamma_score}
 
 # --- 3. 画面デザイン設定 ---
 st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
 st.markdown("""
 <style>
-    /* 全体的に白基調へ */
-    .report-container { 
-        padding: 20px; 
-        border: 1px solid #e2e8f0; 
-        border-radius: 12px; 
-        background-color: #ffffff;
-        margin-bottom: 25px;
-    }
-    .price-large { 
-        font-size: 40px; 
-        font-weight: bold; 
-        color: #1e293b; 
-        line-height: 1.1; 
-        margin: 5px 0; 
-    }
-    .gold-label { 
-        color: #b45309; 
-        font-size: 11px; 
-        font-weight: bold; 
-        letter-spacing: 1px; 
-    }
-    .param-row { 
-        display: flex; 
-        justify-content: space-between; 
-        padding: 10px 0; 
-        border-bottom: 1px solid #f1f5f9; 
-        font-size: 14px; 
-    }
+    .report-container { padding: 10px; margin-top: 20px; }
+    .price-large { font-size: 40px; font-weight: bold; color: #1e293b; line-height: 1.1; margin: 5px 0; }
+    .gold-label { color: #b45309; font-size: 11px; font-weight: bold; letter-spacing: 1px; }
+    .param-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
     .param-label { color: #64748b; }
     .param-value { color: #1e293b; font-weight: bold; }
-    
-    /* 解析ログも白背景に緑文字で見やすく */
-    .audit-log { 
-        font-family: 'Courier New', monospace; 
-        font-size: 11px; 
-        background: #f8fafc; 
-        padding: 15px; 
-        border-radius: 8px; 
-        color: #166534; 
-        border: 1px solid #e2e8f0; 
-        margin-top: 20px; 
-        line-height: 1.6; 
-    }
-    /* ブランドセクション */
-    .tier-card { 
-        padding: 15px; 
-        border-radius: 8px; 
-        margin-bottom: 12px; 
-        border-left: 5px solid #cbd5e1; 
-        background-color: #f8fafc;
-    }
-    .tier-top { border-left-color: #b45309; }
+    .audit-log { font-family: 'Courier New', monospace; font-size: 11px; background: #f8fafc; padding: 15px; border-radius: 8px; color: #166534; border: 1px solid #e2e8f0; margin-top: 20px; line-height: 1.6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -115,18 +64,18 @@ if data:
         base_price_val = base_prices.get(selected_loc, 0)
         ratio = model.predict(input_df)[0]
         std_price = base_price_val * ratio * area
-        p = calculate_5_params(walk_dist, 1.05, area, base_price_val)
+        p = calculate_5_params(walk_dist, area, base_price_val)
 
         st.markdown("---")
         
-        # --- 白基調のレポート形式 ---
+        # エラー回避：すべてを一つの st.markdown にまとめ、途中で Streamlit のコンポーネントを挟まない
         st.markdown(f"""
         <div class="report-container">
             <h3 style="color: #0f172a; margin: 0;">📍 {selected_loc.replace('東京都','')}</h3>
             <p style="color: #64748b; font-size: 13px;">{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
             
             <div style="display: flex; flex-wrap: wrap; margin-top: 25px; gap: 30px;">
-                <div style="flex: 1; min-width: 280px;">
+                <div style="flex: 1; min-width: 250px;">
                     <div class="param-row"><span class="param-label">地点固有地力 α</span><span class="param-value">Rank {p['alpha']}</span></div>
                     <div class="param-row"><span class="param-label">地点利便性指数 μ</span><span class="param-value">Rank {p['mu']}</span></div>
                     <div class="param-row"><span class="param-label">面積希少性 λ</span><span class="param-value">Rank {p['lambda']}</span></div>
@@ -156,17 +105,5 @@ if data:
         </div>
         """, unsafe_allow_html=True)
 
-        st.write("### 💎 ブランドグレード別詳細")
-        st.markdown(f"""
-        <div class="tier-card tier-top">
-            <div style="font-weight:bold; color:#b45309; font-size:15px;">【最高級】プレミアム査定：{int(std_price * 1.25):,} 円〜</div>
-            <div style="font-size:12px; color:#64748b; margin-top:4px;">三井：パークマンション / 三菱：ザ・パークハウス グラン 等</div>
-        </div>
-        <div class="tier-card" style="border-left-color: #0369a1;">
-            <div style="font-weight:bold; color:#0369a1; font-size:15px;">【高級・タワー】プレミアム査定：{int(std_price * 1.15):,} 円〜</div>
-            <div style="font-size:12px; color:#64748b; margin-top:4px;">三井：パークコート / 野村：プラウドタワー / 東京建物：ブリリアタワー 等</div>
-        </div>
-        """, unsafe_allow_html=True)
-
 else:
-    st.error("AIモデルを読み込めません。")
+    st.error("モデルが見つかりません。")
