@@ -54,8 +54,8 @@ if data:
         std_price = base_price_val * ratio * area
         p = calculate_5_params(walk_dist, area, base_price_val)
 
-        # 判定ロジック（±10%以内か）
-        is_converged = 0.90 <= ratio <= 1.10
+        # 判定ロジック（±20%以内か）
+        is_converged = 0.80 <= ratio <= 1.20
         if is_converged:
             status_color = "#166534" # 緑（正常）
             status_bg = "#f0fdf4"
@@ -72,3 +72,4 @@ if data:
 
 else:
     st.error("モデルが見つかりません。")
+
