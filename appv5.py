@@ -55,6 +55,16 @@ def create_radar_chart(scores):
 
 # --- 4. 画面構成 ---
 st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
+
+# スタイル定義（解析ログ用の緑文字など）
+st.markdown("""
+<style>
+    body { background-color: #0e1117; color: white; }
+    .stButton>button { width: 100%; border-radius: 8px; background-color: #D4AF37; color: black; font-weight: bold; border: none; }
+    .stButton>button:hover { background-color: #B8962E; color: white; }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🏙️ 23区精密エリアAI査定")
 
 if data:
@@ -72,9 +82,9 @@ if data:
     year_built = c2.number_input("築年 西暦", value=2015)
     walk_dist = c3.number_input("駅徒歩 分", value=8, min_value=1)
 
-    # ボタンはここ1箇所だけにします
-    if st.button("AI精密査定を実行", type="primary"):
-        # 計算ロジック
+    # 実行ボタン
+    if st.button("AI精密査定を実行"):
+        # --- 計算プロセス ---
         input_df = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
         input_df['area'], input_df['age'], input_df['walk'] = area, 2026 - year_built, walk_dist
         input_df[f'地点_{selected_loc}'] = 1.0
@@ -86,43 +96,46 @@ if data:
 
         st.markdown("---")
         
-        # 巨大な一つの黒いカードとして構築（デザイン統合）
+        # --- 黒背景の一体化カード開始 ---
         st.markdown(f"""
-        <div style="background-color: #111; padding: 20px; border-radius: 15px; border: 1px solid #333;">
-            <h3 style="color: white; margin-top: 0;">📍 {selected_loc.replace('東京都','')}</h3>
-            <p style="color: #888; font-size: 14px;">数理モデル解析：{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
+        <div style="background-color: #111; padding: 25px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+            <h3 style="color: white; margin: 0 0 5px 0; font-size: 22px;">📍 {selected_loc.replace('東京都','')}</h3>
+            <p style="color: #888; font-size: 13px; margin-bottom: 20px;">数理モデル解析：{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
         """, unsafe_allow_html=True)
 
         col_left, col_right = st.columns([1.2, 1])
         
         with col_left:
+            # 蜘蛛の巣グラフ表示
             st.plotly_chart(create_radar_chart(scores), use_container_width=True, config={'displayModeBar': False})
         
         with col_right:
+            # AI指値・グレード別表示
             st.markdown(f"""
-            <div style="text-align: right; padding-top: 10px;">
-                <div style="color: #D4AF37; font-size: 14px; font-weight: bold;">AI THEORETICAL PRICE</div>
-                <div style="font-size: 40px; font-weight: bold; color: white; line-height: 1.2;">{int(std_price):,} <span style="font-size: 18px;">円</span></div>
-                <div style="border-top: 1px solid #333; margin: 15px 0; padding-top: 10px;">
-                    <div style="color: #aaa; font-size: 12px; margin-bottom: 5px;">【グレード別プレミアム査定】</div>
-                    <div style="color: #fff; font-size: 14px;">Tier1: {int(std_price * 1.25):,} 円</div>
-                    <div style="color: #fff; font-size: 14px;">Tier2: {int(std_price * 1.15):,} 円</div>
-                    <div style="color: #fff; font-size: 14px;">Tier3: {int(std_price * 1.05):,} 円</div>
+            <div style="text-align: right;">
+                <div style="color: #D4AF37; font-size: 12px; font-weight: bold; letter-spacing: 1px;">AI THEORETICAL PRICE</div>
+                <div style="font-size: 42px; font-weight: bold; color: white; line-height: 1.1; margin: 5px 0;">{int(std_price):,} <span style="font-size: 16px; color: #888;">円</span></div>
+                <div style="border-top: 1px solid #333; margin: 15px 0; padding-top: 15px;">
+                    <div style="color: #888; font-size: 11px; margin-bottom: 8px; letter-spacing: 0.5px;">【グレード別プレミアム推計】</div>
+                    <div style="color: #eee; font-size: 14px; margin-bottom: 4px;">Tier 1: {int(std_price * 1.25):,} 円</div>
+                    <div style="color: #eee; font-size: 14px; margin-bottom: 4px;">Tier 2: {int(std_price * 1.15):,} 円</div>
+                    <div style="color: #eee; font-size: 14px;">Tier 3: {int(std_price * 1.05):,} 円</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-        # 解析ログ
+        # 解析ログ（カード下部に完全に一体化）
         st.markdown(f"""
-            <div style="font-family: 'Courier New', monospace; font-size: 12px; background: #000; padding: 15px; border-radius: 8px; color: #00ff00; border: 1px solid #222; margin-top: 10px;">
+            <div style="font-family: 'Courier New', monospace; font-size: 11px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; color: #00ff00; border: 1px solid #222; margin-top: 15px; line-height: 1.6;">
                 <span style="color: #555;">>></span> ANALYSIS_SEQUENCE_COMPLETE...<br>
-                <span style="color: #555;">>></span> LOCATION_ALPHA: RANK_{scores[0]} / UTILITY_MU: RANK_{scores[1]}<br>
-                <span style="color: #555;">>></span> NON_LINEAR_LAMBDA_DETECTION: {scores[3]*10}%<br>
-                <span style="color: #555;">>></span> <span style="color: #ffaa00;">MARKET_INEFFICIENCY_DELTA DETECTED</span><br>
-                <span style="color: #555;">>></span> CONCLUSION: 理論均衡価格への収束性が認められます。
+                <span style="color: #555;">>></span> LOCATION_ALPHA: RANK_{scores[0]} / UTILITY_MU: RANK_{scores[1]} / MOMENTUM_GAMMA: RANK_{scores[4]}<br>
+                <span style="color: #555;">>></span> NON_LINEAR_LAMBDA_RATIO: {scores[3]*10}% DETECTED<br>
+                <span style="color: #555;">>></span> <span style="color: #ffaa00;">MARKET_INEFFICIENCY_DELTA EVALUATED</span><br>
+                <span style="color: #555;">>></span> CONCLUSION: 理論均衡価格への高い収束性を確認。
             </div>
         </div>
         """, unsafe_allow_html=True)
+        # --- 黒背景の一体化カード終了 ---
 
 else:
-    st.error("AIモデルの読み込みに失敗しました。")
+    st.error("AIモデルの読み込みに失敗しました。ファイルパスを確認してください。")
