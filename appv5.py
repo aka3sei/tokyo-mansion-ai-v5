@@ -33,8 +33,14 @@ def calculate_5_params(selected_loc, walk_dist, tier_value, area, base_price_val
         1027349, 1224206, 1514582, 2058197
     ]
     
-    # α: 地点固有地力 (AIの予測単価を正確な統計データと比較)
-    alpha_score = int(np.digitize(base_price_val, alpha_thresholds) + 1)
+    # 型チェック：万が一base_price_valが数値でない場合のフォールバック
+    try:
+        val = float(base_price_val)
+    except:
+        val = 895302.0  # エラー時は中央値
+    
+    # α: 地点固有地力 (数値として判定)
+    alpha_score = int(np.digitize(val, alpha_thresholds) + 1)
     
     # μ: 地点利便性指数
     mu_score = max(1, 11 - (walk_dist if walk_dist <= 5 else 5 + (walk_dist-5)//2))
@@ -143,4 +149,5 @@ if data:
         
 else:
     st.error("AIモデルの読み込みに失敗しました。")
+
 
