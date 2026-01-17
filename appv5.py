@@ -78,26 +78,22 @@ if data:
             delta_display = "分析完了"
             status_color, status_bg = "#166534", "#f0fdf4"
         else:
-            delta_display = f"{delta_pct:+.1f}%"
+            # --- 市場非効率性 δ を AI ratio の表示に統合 ---
+        delta_display = f"{ratio:.4f}"  # ％ではなく少数をそのまま表示
+
+        # 背景色判定（1.0に近いほど緑、乖離が大きいと赤）
+        if 0.80 <= ratio <= 1.20:
+            status_color, status_bg = "#166534", "#f0fdf4"
+        else:
             status_color, status_bg = "#b91c1c", "#fef2f2"
 
-        p = calculate_5_params(walk_dist, area, base_price_val)
-
-        st.markdown("---")
-        
-# --- 修正版：ratioを表示に含める ---
-        # HTMLレポート（複数行形式で安全に定義）
-        # HTMLレポート定義
+        # HTMLレポート定義（インデントを崩さず貼り付けてください）
         html_report = f'''
 <div style="padding:20px;border:1px solid #e2e8f0;border-radius:12px;font-family:sans-serif;background-color:#ffffff;">
     <h3 style="color:#0f172a;margin:0;">📍 {selected_loc.replace("東京都","")}</h3>
     <p style="color:#64748b;font-size:13px;">{area}㎡ / 築{2026-year_built}年 / 徒歩{walk_dist}分</p>
     <div style="display:flex;flex-wrap:wrap;margin-top:25px;gap:20px;">
         <div style="flex:1;min-width:250px;">
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:2px solid #3b82f6;font-size:14px;margin-bottom:5px;">
-                <span style="color:#3b82f6;font-weight:bold;">AI 予測倍率 (ratio)</span>
-                <span style="font-weight:bold;color:#3b82f6;">{ratio:.4f}</span>
-            </div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:14px;">
                 <span style="color:#64748b;">地点固有地力 α</span>
                 <span style="font-weight:bold;">Rank {p["alpha"]}</span>
@@ -115,8 +111,8 @@ if data:
                 <span style="font-weight:bold;">Rank {p["gamma"]}</span>
             </div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;">
-                <span style="color:#64748b;">市場非効率性 δ</span>
-                <span style="color:#b45309;font-weight:bold;">{delta_display}</span>
+                <span style="color:#64748b;font-weight:bold;">市場非効率性 δ (AI Ratio)</span>
+                <span style="color:#3b82f6;font-weight:bold;">{delta_display}</span>
             </div>
         </div>
         <div style="flex:1;min-width:250px;text-align:left;border-left:2px solid #f1f5f9;padding-left:25px;">
@@ -137,15 +133,15 @@ if data:
             >> MU_RANK_{p["mu"]}<br>
             >> GAMMA_RANK_{p["gamma"]}<br>
             >> LAMBDA_NON_LINEAR_RATIO: {p["lambda"]*10}%<br>
-            >> MARKET_INEFFICIENCY_DELTA: {delta_pct:+.1f}% EVALUATED
+            >> MARKET_INEFFICIENCY_DELTA: {ratio:.4f} EVALUATED
         </div>
     </div>
 </div>
 '''
-        # 最後にこの1行を必ず入れる（これがないと画面に出ません）
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("ファイルが見つかりません。")
+
 
 
 
