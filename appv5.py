@@ -39,13 +39,34 @@ st.title("🏙️ 23区精密エリアAI査定")
 
 if data:
     model, cols, base_prices, tier_master = data['model'], data['cols'], data['base_prices'], data['tier_master']
-    towns = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
-    df_towns = pd.DataFrame({'full': towns})
-    df_towns['ward'] = df_towns['full'].apply(lambda x: re.search(r'東京都(.*?区)', x).group(1))
     
-    ward = st.selectbox("1. 区を選択してください", sorted(df_towns['ward'].unique()))
+    # 1. PKLのカラムから「地点_」を取り除いた純粋な地名リストを作成
+    all_locations = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
+    
+    # 2. 地点名から「区」を判別（東京都〇〇区 を抽出）
+    def extract_ward_strictly(name):
+        match = re.search(r'東京都(.+?区)', name)
+        if match:
+            return match.group(1) # 「千代田区」などが返る
+        return "その他"
+
+    df_towns = pd.DataFrame({'full': all_locations})
+    df_towns['ward'] = df_towns['full'].apply(extract_ward_strictly)
+    
+    # 3. 区の選択
+    ward_list = sorted(df_towns['ward'].unique())
+    ward = st.selectbox("1. 区を選択してください", ward_list)
+    
+    # 4. 地点の選択（ここが岩本町を表示させる肝です）
+    # 選択された区に合致する「full」名称をそのままリスト化
     loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
-    selected_loc = st.selectbox("2. 地点を選択してください", loc_options, format_func=lambda x: x.split(ward)[-1])
+    
+    selected_loc = st.selectbox(
+        "2. 地点を選択してください", 
+        sorted(loc_options),
+        # 表示だけを「区より後ろ」にする（岩本町や三番町がそのまま出ます）
+        format_func=lambda x: x.replace(f"東京都{ward}", "")
+    )
     
     c1, c2, c3 = st.columns(3)
     area = c1.number_input("専有面積 ㎡", value=40.0, step=1.0)
@@ -140,6 +161,7 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("ファイルが見つかりません。")
+
 
 
 
