@@ -50,12 +50,12 @@ if data:
     c1, c2, c3 = st.columns(3)
     
     # 専有面積のみ手書き入力に戻す
-    area = c1.number_input("専有面積 ㎡", value=42.0, step=0.1)
+    area = c1.number_input("専有面積 ㎡", value=42.0, step=1)
     
-    year_options = list(range(2026, 1989, -1))
+    year_options = list(range(2026, 1979, -1))
     year_built = c2.selectbox("築年 西暦", options=year_options, index=year_options.index(2015))
     
-    walk_options = list(range(1, 16))
+    walk_options = list(range(1, 21))
     walk_dist = c3.selectbox("駅徒歩 分", options=walk_options, index=walk_options.index(8))
 
     if st.button("AI精密査定を実行"):
@@ -86,3 +86,4 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("モデルが見つかりません。")
+
