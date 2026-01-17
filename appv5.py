@@ -37,36 +37,38 @@ def calculate_5_params(walk_dist, area, base_price_val):
 st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
 st.title("🏙️ 23区精密エリアAI査定")
 
-if data:
-    model, cols, base_prices, tier_master = data['model'], data['cols'], data['base_prices'], data['tier_master']
-    
-    # 1. PKLのカラムから「地点_」を取り除いた純粋な地名リストを作成
-    all_locations = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
-    
-    # 2. 地点名から「区」を判別（東京都〇〇区 を抽出）
-    def extract_ward_strictly(name):
-        match = re.search(r'東京都(.+?区)', name)
-        if match:
-            return match.group(1) # 「千代田区」などが返る
-        return "その他"
+# --- 地点リスト作成（岩本町・三番町 完全対応版） ---
+        # 1. pklのカラムから「地点_」で始まるものだけを抽出し、リスト化
+        all_locs = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
+        
+        # 2. 「東京都〇〇区」を正確に抜き出す
+        def get_ward_name(full_name):
+            # 「区」という文字までを抽出（例：東京都千代田区）
+            match = re.search(r'東京都.*?区', full_name)
+            return match.group(0) if match else "その他"
 
-    df_towns = pd.DataFrame({'full': all_locations})
-    df_towns['ward'] = df_towns['full'].apply(extract_ward_strictly)
-    
-    # 3. 区の選択
-    ward_list = sorted(df_towns['ward'].unique())
-    ward = st.selectbox("1. 区を選択してください", ward_list)
-    
-    # 4. 地点の選択（ここが岩本町を表示させる肝です）
-    # 選択された区に合致する「full」名称をそのままリスト化
-    loc_options = df_towns[df_towns['ward'] == ward]['full'].tolist()
-    
-    selected_loc = st.selectbox(
-        "2. 地点を選択してください", 
-        sorted(loc_options),
-        # 表示だけを「区より後ろ」にする（岩本町や三番町がそのまま出ます）
-        format_func=lambda x: x.replace(f"東京都{ward}", "")
-    )
+        df_towns = pd.DataFrame({'full': all_locs})
+        df_towns['ward_full'] = df_towns['full'].apply(get_ward_name)
+        
+        # 3. UI: 区の選択（表示は「千代田区」などにする）
+        wards = sorted(df_towns['ward_full'].unique())
+        selected_ward_full = st.selectbox(
+            "1. 区を選択してください", 
+            wards,
+            format_func=lambda x: x.replace("東京都", "")
+        )
+        
+        # 4. UI: 地点の選択（ここが肝です）
+        # 選択された区に属する「full」名称をリスト化
+        loc_options = df_towns[df_towns['ward_full'] == selected_ward_full]['full'].tolist()
+        
+        # アルファベット・五十音順でソートして表示
+        selected_loc = st.selectbox(
+            "2. 地点を選択してください", 
+            sorted(loc_options),
+            # 重要：表示の時だけ「東京都千代田区」を消して「岩本町」にする
+            format_func=lambda x: x.replace(selected_ward_full, "")
+        )
     
     c1, c2, c3 = st.columns(3)
     area = c1.number_input("専有面積 ㎡", value=40.0, step=1.0)
@@ -161,6 +163,7 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("ファイルが見つかりません。")
+
 
 
 
