@@ -72,22 +72,21 @@ if data:
         raw_price = base_price_val * ratio * area
         std_price = int(raw_price / tier_factor)
         
-        # 市場非効率性 δ の算出と表示判定
-        delta_pct = (ratio - 1.0) * 100
-        if 0.80 <= ratio <= 1.20:
-            delta_display = "分析完了"
-            status_color, status_bg = "#166534", "#f0fdf4"
-        else:
-            # --- 市場非効率性 δ を AI ratio の表示に統合 ---
-        delta_display = f"{ratio:.4f}"  # ％ではなく少数をそのまま表示
+        # --- 市場非効率性 δ を AI ratio の表示に統合 ---
+        delta_display = f"{ratio:.4f}"
+        delta_pct = (ratio - 1.0) * 100  # ログ用
 
-        # 背景色判定（1.0に近いほど緑、乖離が大きいと赤）
+        # 背景色判定
         if 0.80 <= ratio <= 1.20:
             status_color, status_bg = "#166534", "#f0fdf4"
         else:
             status_color, status_bg = "#b91c1c", "#fef2f2"
 
-        # HTMLレポート定義（インデントを崩さず貼り付けてください）
+        p = calculate_5_params(walk_dist, area, base_price_val)
+
+        st.markdown("---")
+        
+        # HTMLレポート定義
         html_report = f'''
 <div style="padding:20px;border:1px solid #e2e8f0;border-radius:12px;font-family:sans-serif;background-color:#ffffff;">
     <h3 style="color:#0f172a;margin:0;">📍 {selected_loc.replace("東京都","")}</h3>
@@ -141,6 +140,7 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("ファイルが見つかりません。")
+
 
 
 
