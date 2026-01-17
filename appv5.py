@@ -79,7 +79,7 @@ if data:
         </span></div><div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;">
         <span style="color:#64748b;">市場非効率性 δ</span><span style="color:#b45309;font-weight:bold;">分析完了</span></div></div>
         <div style="flex:1;min-width:250px;text-align:right;border-left:2px solid #f1f5f9;padding-left:25px;">
-        <div style="color:#b45309;font-size:11px;font-weight:bold;letter-spacing:1px;">AI 指値</div>
+        <div style="color:#b45309;font-size:18px;font-weight:bold;letter-spacing:1px;">AI 指値</div>
         <div style="font-size:40px;font-weight:bold;color:#1e293b;margin:5px 0;">{int(std_price):,} 
         <span style="font-size:18px;color:#64748b;font-weight:normal;">円</span></div>
         <div style="margin-top:15px;padding-top:15px;border-top:1px solid #f1f5f9;text-align:left;">
@@ -91,5 +91,6 @@ if data:
 
 else:
     st.error("モデルが見つかりません。")
+
 
 
