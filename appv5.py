@@ -50,7 +50,7 @@ if data:
     c1, c2, c3 = st.columns(3)
     
     # 専有面積のみ手書き入力に戻す
-    area = c1.number_input("専有面積 ㎡", value=42.0, step=1)
+    area = c1.number_input("専有面積 ㎡", value=42.0, step=1.0)
     
     year_options = list(range(2026, 1979, -1))
     year_built = c2.selectbox("築年 西暦", options=year_options, index=year_options.index(2015))
@@ -86,4 +86,5 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("モデルが見つかりません。")
+
 
