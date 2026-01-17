@@ -75,7 +75,7 @@ if data:
             display_factor = 1.000
 
         p = calculate_5_params(walk_dist, area, base_price_val)
-        is_converged = 0.90 <= ratio <= 1.10
+        is_converged = 0.80 <= ratio <= 1.20
         status_color, status_bg = ("#166534", "#f0fdf4") if is_converged else ("#b91c1c", "#fef2f2")
 
         st.markdown("---")
@@ -86,5 +86,6 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("モデルが見つかりません。")
+
 
 
