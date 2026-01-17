@@ -48,11 +48,11 @@ if data:
     selected_loc = st.selectbox("2. 地点を選択してください", loc_options, format_func=lambda x: x.split(ward)[-1])
     
     c1, c2, c3 = st.columns(3)
-    area = c1.number_input("専有面積 ㎡", value=42.0, step=0.1)
-    year_options = list(range(2026, 1989, -1))
+    area = c1.number_input("専有面積 ㎡", value=40.0, step=1.0)
+    year_options = list(range(2026, 1969, -1))
     year_built = c2.selectbox("築年 西暦", options=year_options, index=year_options.index(2015))
-    walk_options = list(range(1, 16))
-    walk_dist = c3.selectbox("駅徒歩 分", options=walk_options, index=walk_options.index(8))
+    walk_options = list(range(1, 21))
+    walk_dist = c3.selectbox("駅徒歩 分", options=walk_options, index=walk_options.index(5))
 
     if st.button("AI精密査定を実行"):
         # 1. 補正用Factorの取得
@@ -85,3 +85,4 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("ファイルが見つかりません。")
+
