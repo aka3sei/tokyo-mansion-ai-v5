@@ -4,13 +4,13 @@ import pickle
 import numpy as np
 import re
 
-# --- 1. データ読み込み（キャッシュ名を変更して強制更新） ---
+# --- 1. データ読み込み（関数名を変更してキャッシュを強制破棄） ---
 @st.cache_resource
-def load_data_v5():
+def load_data_final_fix():
     try:
         with open('real_estate_ai_v5_final.pkl', 'rb') as f:
             data = pickle.load(f)
-        # ファイル名は適宜修正してください
+        # ファイル名は環境に合わせて適宜修正してください
         tier_df = pd.read_csv('chome_master_with_factors.csv').set_index('学習地点')
         return {
             'model': data['model'], 
@@ -21,7 +21,7 @@ def load_data_v5():
     except:
         return None
 
-res = load_data_v5()
+res = load_data_final_fix()
 
 # --- 2. パラメータ演算 ---
 def calculate_5_params(walk_dist, area, base_price_val):
@@ -40,24 +40,36 @@ st.title("🏙️ 23区精密エリアAI査定")
 if res:
     model, cols, base_prices, tier_master = res['model'], res['cols'], res['base_prices'], res['tier_master']
 
-    # --- 地点抽出：ここを最もシンプルなロジックに変更 ---
+    # --- 重要：地点リストを確実に作成するロジック ---
     all_locs = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
     
-    # 23区リスト
-    wards = ["千代田区","中央区","港区","新宿区","文京区","台東区","墨田区","江東区","品川区","目黒区","大田区","世田谷区","渋谷区","中野区","杉並区","豊島区","北区","荒川区","板橋区","練馬区","足立区","葛飾区","江戸川区"]
+    # 区のリストを手動定義（pkl内の「東京都〇〇区」と確実に一致させるため）
+    wards_list = [
+        "千代田区", "中央区", "港区", "新宿区", "文京区", "台東区", "墨田区", "江東区", 
+        "品川区", "目黒区", "大田区", "世田谷区", "渋谷区", "中野区", "杉並区", 
+        "豊島区", "北区", "荒川区", "板橋区", "練馬区", "足立区", "葛飾区", "江戸川区"
+    ]
     
-    selected_ward = st.selectbox("1. 区を選択してください", wards)
+    selected_ward = st.selectbox("1. 区を選択してください", wards_list)
     
-    # 「千代田区」が含まれる地点をすべて抽出（これなら岩本町も三番町も漏れません）
-    loc_options = [l for l in all_locs if selected_ward in l]
+    # 指定された区を含む地点をフィルタリング（「東京都千代田区岩本町」などがヒットする）
+    # ここで「東京都」を補完して検索することで、マッチング率を100%にします
+    target_ward_string = f"東京都{selected_ward}"
+    loc_options = [l for l in all_locs if target_ward_string in l]
     
+    # もし「東京都」が付いていないpklデータがあった場合の保険
+    if not loc_options:
+        loc_options = [l for l in all_locs if selected_ward in l]
+
     if loc_options:
         selected_loc = st.selectbox(
             "2. 地点を選択してください", 
             sorted(loc_options),
-            format_func=lambda x: x.replace(f"東京都{selected_ward}", "")
+            # 表示から「東京都千代田区」を消して「岩本町」だけにする
+            format_func=lambda x: x.replace(target_ward_string, "").replace(selected_ward, "")
         )
         
+        # --- 入力フォーム ---
         c1, c2, c3 = st.columns(3)
         area = c1.number_input("専有面積 ㎡", value=40.0, step=1.0)
         year_options = list(range(2026, 1969, -1))
@@ -90,6 +102,7 @@ if res:
             p = calculate_5_params(walk_dist, area, base_price_val)
 
             st.markdown("---")
+            # レポート表示（前回までの修正を反映）
             html_report = f'''
             <div style="padding:20px;border:1px solid #e2e8f0;border-radius:12px;font-family:sans-serif;background-color:#ffffff;">
                 <h3 style="color:#0f172a;margin:0;">📍 {selected_loc.replace("東京都","")}</h3>
@@ -135,6 +148,6 @@ if res:
             '''
             st.markdown(html_report, unsafe_allow_html=True)
     else:
-        st.warning(f"{selected_ward}の地点データが見つかりません。")
+        st.error(f"⚠️ {selected_ward} の地点データが読み込めません。")
 else:
-    st.error("データの読み込みに失敗しました。")
+    st.error("🚨 モデルファイルの読み込みに失敗しました。")
