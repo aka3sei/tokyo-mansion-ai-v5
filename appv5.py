@@ -33,41 +33,30 @@ def calculate_5_params(walk_dist, area, base_price_val):
     gamma_score = min(10, 4 + (alpha_score // 2))
     return {"alpha": alpha_score, "mu": mu_score, "lambda": lambda_score, "gamma": gamma_score}
 
-# --- 3. メイン画面 ---
+# --- 3. UI ---
 st.set_page_config(page_title="23区精密エリアAI査定", layout="centered")
 st.title("🏙️ 23区精密エリアAI査定")
 
-if data:
-    model, cols, base_prices, tier_master = data['model'], data['cols'], data['base_prices'], data['tier_master']
+if res:
+    model, cols, base_prices, tier_master = res['model'], res['cols'], res['base_prices'], res['tier_master']
 
-    # --- 地点リスト作成（岩本町・三番町 完全対応版） ---
-    # 1. pklのカラムから「地点_」で始まるものだけを抽出し、リスト化
+    # --- 地点抽出：ここを最もシンプルなロジックに変更 ---
     all_locs = [c.replace('地点_', '') for c in cols if c.startswith('地点_')]
     
-    # 2. 「東京都〇〇区」を正確に抜き出す
-    def get_ward_name(full_name):
-        match = re.search(r'東京都.*?区', full_name)
-        return match.group(0) if match else "その他"
-
-    df_towns = pd.DataFrame({'full': all_locs})
-    df_towns['ward_full'] = df_towns['full'].apply(get_ward_name)
+    # 23区リスト
+    wards = ["千代田区","中央区","港区","新宿区","文京区","台東区","墨田区","江東区","品川区","目黒区","大田区","世田谷区","渋谷区","中野区","杉並区","豊島区","北区","荒川区","板橋区","練馬区","足立区","葛飾区","江戸川区"]
     
-    # 3. UI: 区の選択
-    wards = sorted(df_towns['ward_full'].unique())
-    selected_ward_full = st.selectbox(
-        "1. 区を選択してください", 
-        wards,
-        format_func=lambda x: x.replace("東京都", "")
-    )
+    selected_ward = st.selectbox("1. 区を選択してください", wards)
     
-    # 4. UI: 地点の選択
-    loc_options = df_towns[df_towns['ward_full'] == selected_ward_full]['full'].tolist()
+    # 「千代田区」が含まれる地点をすべて抽出（これなら岩本町も三番町も漏れません）
+    loc_options = [l for l in all_locs if selected_ward in l]
     
-    selected_loc = st.selectbox(
-        "2. 地点を選択してください", 
-        sorted(loc_options),
-        format_func=lambda x: x.replace(selected_ward_full, "")
-    )
+    if loc_options:
+        selected_loc = st.selectbox(
+            "2. 地点を選択してください", 
+            sorted(loc_options),
+            format_func=lambda x: x.replace(f"東京都{selected_ward}", "")
+        )
     
     c1, c2, c3 = st.columns(3)
     area = c1.number_input("専有面積 ㎡", value=40.0, step=1.0)
@@ -162,6 +151,7 @@ if data:
         st.markdown(html_report, unsafe_allow_html=True)
 else:
     st.error("ファイルが見つかりません。")
+
 
 
 
